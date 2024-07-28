@@ -16,10 +16,12 @@ include(./QXlsx/QXlsx.pri)
 
 SOURCES += \
     exceljsontable.cpp \
+    lib/jsontable.cpp \
     main.cpp
 
 HEADERS += \
-    exceljsontable.h
+    exceljsontable.h \
+    lib/jsontable.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
