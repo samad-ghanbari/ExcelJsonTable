@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
     //title repeated on eatch sheet
     QJsonArray Row;
-    QJsonObject style = title.createStyle("DSLAM", 0, 40, "#00A", "#eee","tahoma", 18,true,"center",1);
+    QJsonObject style = title.createStyle("DSLAM", 0, 50, "#008", "#eee","tahoma", 18,true,"center",1,5,5);
     QJsonObject obj = title.createObject("text", "Area 2 DSLAM Plan", style);
     Row = title.addObjectToRow(Row, obj);
     title.addRowToTable(Row);
@@ -63,7 +63,6 @@ int main(int argc, char *argv[])
     table.addRowToTable(Row);
 
 
-    table.updateTableRowHeight();
 
     ExcelJsonTable ejs(title.table, table.table);
 

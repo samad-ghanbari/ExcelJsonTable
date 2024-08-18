@@ -1,9 +1,13 @@
 #include "jsontable.h"
+#include <QString>
 #include <QFile>
 #include <QByteArray>
 #include <QJsonParseError>
+#include <QFontMetrics> // gui config
+#include <QPixmap>
+#include <QtMath>
 
-JsonTable::JsonTable(double _default_height, QString _default_background_color, QString _default_color, QString _default_font_family, double _default_font_size, QObject *parent )
+JsonTable::JsonTable(double _default_height, QString _default_color, QString _default_background_color, QString _default_font_family, double _default_font_size, int _default_hPadding, int _default_vPadding, QObject *parent )
     : QObject{parent}
 {
     this->default_height = _default_height;
@@ -11,14 +15,18 @@ JsonTable::JsonTable(double _default_height, QString _default_background_color, 
     this->default_color = _default_color;
     this->default_font_size = _default_font_size;
     this->default_font_family = _default_font_family;
+    this->default_hPadding = _default_hPadding;
+    this->default_vPadding = _default_vPadding;
 }
 
-QJsonObject JsonTable::createStyle(QString _name, double _width, double _height, QString _color, QString _backgroundColor, QString _fontFamily, double _fontSize, bool _bold, QString _align, int _border, int _rowSpan)
+QJsonObject JsonTable::createStyle(QString _name, double _width, double _height, QString _color, QString _backgroundColor, QString _fontFamily, double _fontSize, bool _bold, QString _align, int _border, int _hPadding, int _vPadding, int _rowSpan)
 {
     QJsonObject obj;
+
     obj["name"] = _name;
     obj["width"] = (_width < 0)? 0 : _width;
     obj["height"] = (_height == 0)? default_height : _height;
+    obj["occupy"] = -1;
     obj["background-color"] = (_backgroundColor.isNull())? default_background_color : _backgroundColor ;
     obj["color"] = (_color.isNull())? default_color : _color;
     obj["font-size"]= (_fontSize == 0)? default_font_size : _fontSize;
@@ -26,6 +34,8 @@ QJsonObject JsonTable::createStyle(QString _name, double _width, double _height,
     obj["bold"]= _bold;
     obj["align"]= _align;// left center right
     obj["border"] = _border;
+    obj["h-padding"] = (_hPadding == 0)? default_hPadding : _hPadding;
+    obj["v-padding"] = (_vPadding == 0)? default_vPadding : _vPadding;
     obj["row-span"] = _rowSpan; // 0:default -1:skip n>0:n-span this field will be updated by rowSpanAnalyser
     return obj;
 }
@@ -36,6 +46,9 @@ QJsonObject JsonTable::createObject(QString _type, QString _value, QJsonObject _
     obj["type"] = _type;
     obj["value"] = _value;
     obj["style"] = _style;
+    // update occupy
+    obj = updateOccupy(obj);
+
     return obj;
 }
 
@@ -48,6 +61,8 @@ QJsonArray JsonTable::createObjects(QString _type, QStringList _values, QJsonObj
         obj["type"] = _type;
         obj["value"] = _values[i];
         obj["style"] = _style;
+        // update occupy
+        obj = updateOccupy(obj);
 
         array.append(obj);
     }
@@ -57,6 +72,22 @@ QJsonArray JsonTable::createObjects(QString _type, QStringList _values, QJsonObj
 
 QJsonArray JsonTable::addObjectToRow(QJsonArray &row, QJsonObject item)
 {
+    QJsonObject style = item["style"].toObject();
+    QString type = item["type"].toString();
+    double  height = style.value("height").toDouble();
+    if(type.compare("img", Qt::CaseInsensitive) == 0)
+    {
+        if(height == 0)
+        {
+            QPixmap img(item.value("value").toString());
+            height = img.size().height();
+
+            style["height"] = height;
+
+            item.remove("style");
+            item["style"] = style;
+        }
+    }
     row.append(item);
     return row;
 }
@@ -121,6 +152,46 @@ QByteArray JsonTable::toByteArray(QJsonArray array)
     return bytes;
 }
 
+void JsonTable::setAlternativeRows(QString background1, QString background2, int startRow)
+{
+    QString bg;
+    QJsonArray Row;
+    for(int row=startRow; row < table.size(); row++)
+    {
+        if(row%2 == 0)
+            bg = background1;
+        else
+            bg = background2;
+
+        Row = table[row].toArray();
+        Row = updateStyle(Row, "background-color", bg);
+
+        table.removeAt(row);
+        table.insert(row, Row);
+    }
+}
+
+void JsonTable::highlightRow(int row, QString highlightColor)
+{
+    QJsonArray Row = table[row].toArray();
+    Row = updateStyle(Row, "background-color", highlightColor);
+
+    table.removeAt(row);
+    table.insert(row, Row);
+}
+
+void JsonTable::highlightRow(QList<int> rows, QString highlightColor)
+{
+    QJsonArray Row;
+    for(int r=0; r< rows.size(); r++)
+    {
+        Row = table[rows[r]].toArray();
+        Row = updateStyle(Row, "background-color", highlightColor);
+        table.removeAt(rows[r]);
+        table.insert(rows[r], Row);
+    }
+}
+
 bool JsonTable::saveJsonAs(QString fileName)
 {
     QFile file(fileName);
@@ -153,31 +224,41 @@ bool JsonTable::loadJson(QString fileName)
     return true;
 }
 
-float JsonTable::getRowMaxHeight(QJsonArray array)
+float JsonTable::getRowMaxHeight(QJsonArray Row)
 {
     double maxHeight = 0, height;
+    int vPadding = 0;
     QJsonObject item, style;
-    for (int i=0; i < array.count(); i++)
+    QString type;
+    for (int i=0; i < Row.count(); i++)
     {
-        item = array.at(i).toObject();
+        item = Row.at(i).toObject();
         style = item.value("style").toObject();
+        type = style["type"].toString();
         height = style.value("height").toDouble();
+        if( (height == 0) && (type.compare("img", Qt::CaseInsensitive) == 0) )
+        {
+            QPixmap img(item.value("value").toString());
+            height = img.size().height();
+        }
         if(maxHeight < height)
+        {
             maxHeight = height;
+            vPadding = style.value("v-padding").toInt();
+        }
     }
 
-    if(maxHeight > 100) maxHeight = 100;
-    return maxHeight;
+    return maxHeight + 2 * vPadding;
 }
 
-QJsonObject JsonTable::updateObjectStyle(QJsonObject _object, QString _key, double _val)
+QJsonObject JsonTable::updateStyle(QJsonObject _object, QString _key, QString _val)
 {
     QJsonObject style;
     if(_object.contains("style"))
     {
         style = _object["style"].toObject();
         if( style.contains(_key) )
-            style[_key] = _val;
+                  style[_key] = _val;
 
         _object["style"] = style;
     }
@@ -185,12 +266,27 @@ QJsonObject JsonTable::updateObjectStyle(QJsonObject _object, QString _key, doub
     return _object;
 }
 
-QJsonArray JsonTable::updateRowStyle(QJsonArray row, QString key, double val)
+QJsonObject JsonTable::updateStyle(QJsonObject _object, QString _key, double _val)
+{
+    QJsonObject style;
+    if(_object.contains("style"))
+    {
+        style = _object["style"].toObject();
+        if( style.contains(_key) )
+                  style[_key] = _val;
+
+        _object["style"] = style;
+    }
+
+    return _object;
+}
+
+QJsonArray JsonTable::updateStyle(QJsonArray row, QString key, QString val)
 {
     QJsonObject item;
     for(int i=0; i < row.count(); i++)
     {
-        item = this->updateObjectStyle(row.at(i).toObject(), key , val);
+        item = this->updateStyle(row.at(i).toObject(), key , val);
         row.removeAt(i);
         row.insert(i, item);
     }
@@ -198,17 +294,56 @@ QJsonArray JsonTable::updateRowStyle(QJsonArray row, QString key, double val)
     return row;
 }
 
-void JsonTable::updateTableRowHeight()
+QJsonArray JsonTable::updateStyle(QJsonArray row, QString key, double val)
+{
+    QJsonObject item;
+    for(int i=0; i < row.count(); i++)
+    {
+        item = this->updateStyle(row.at(i).toObject(), key , val);
+        row.removeAt(i);
+        row.insert(i, item);
+    }
+
+    return row;
+}
+
+void JsonTable::updateHeight()
 {
     double maxHeight;
     QJsonArray row;
     for(int i = 0; i < table.count(); i++ )
     {
         maxHeight = this->getRowMaxHeight(table[i].toArray());
-        row = this->updateRowStyle(table[i].toArray(), "height", maxHeight);
+        row = this->updateStyle(table[i].toArray(), "height", maxHeight);
         table.removeAt(i);
         table.insert(i, row);
     }
+}
+
+void JsonTable::updateHeight(int row, int column, double height)
+{
+    QJsonArray Row = table[row].toArray();
+    QJsonObject obj = Row[column].toObject();
+    obj = updateStyle(obj, "height", height);
+
+    Row.removeAt(column);
+    Row.insert(column, obj);
+
+    table.removeAt(row);
+    table.insert(row, Row);
+}
+
+void JsonTable::updateWidth(int row, int column, double width)
+{
+    QJsonArray Row = table[row].toArray();
+    QJsonObject obj = Row[column].toObject();
+    obj = updateStyle(obj, "width", width);
+
+    Row.removeAt(column);
+    Row.insert(column, obj);
+
+    table.removeAt(row);
+    table.insert(row, Row);
 }
 
 double JsonTable::getHeight(int startRow, int endRow)
@@ -233,93 +368,93 @@ double JsonTable::getHeight(int startRow, int endRow)
     return height;
 }
 
-QJsonObject JsonTable::getRowObject(int row, int index)
+QJsonObject JsonTable::getObject(int row, int column)
 {
-    QJsonObject obj = table[row].toArray()[index].toObject();
+    QJsonObject obj = table[row].toArray()[column].toObject();
     return obj;
 }
 
-QString JsonTable::getType(int row, int index)
+QString JsonTable::getType(int row, int column)
 {
-    QJsonObject obj = table[row].toArray()[index].toObject();
+    QJsonObject obj = table[row].toArray()[column].toObject();
     QString type = obj.value("type").toString();
     return type;
 }
 
-QString JsonTable::getValue(int row, int index)
+QString JsonTable::getValue(int row, int column)
 {
-    QJsonObject obj = table[row].toArray()[index].toObject();
+    QJsonObject obj = table[row].toArray()[column].toObject();
     QString value = obj.value("value").toString();
     return value;
 }
 
-QJsonObject JsonTable::getStyle(int row, int index)
+QJsonObject JsonTable::getStyle(int row, int column)
 {
-    QJsonObject obj = table[row].toArray()[index].toObject();
+    QJsonObject obj = table[row].toArray()[column].toObject();
     obj = obj.value("style").toObject();
     return obj;
 }
 
-int JsonTable::getObjectRowSpan(int row, int index)
+int JsonTable::getRowSpan(int row, int column)
 {
-    QJsonObject obj = table[row].toArray()[index].toObject();
+    QJsonObject obj = table[row].toArray()[column].toObject();
     int value = obj["style"].toObject()["row-span"].toInt();
     return value;
 }
 
-bool JsonTable::setObjectRowSpan(int row, int index, int rowSpan)
+bool JsonTable::updateRowSpan(int row, int column, int rowSpan)
 {
     QJsonArray array = table[row].toArray();
-    QJsonObject obj = array[index].toObject();
+    QJsonObject obj = array[column].toObject();
     QJsonObject style = obj["style"].toObject();
     style["row-span"] = rowSpan;
     obj["style"] = style;
-    array.removeAt(index);
-    array.insert(index, obj);
+    array.removeAt(column);
+    array.insert(column, obj);
     table.removeAt(row);
     table.insert(row,array);
 
-    int span = table[row].toArray()[index].toObject()["style"].toObject().value("row-span").toInt();
+    int span = table[row].toArray()[column].toObject()["style"].toObject().value("row-span").toInt();
     if(span == rowSpan) return true; else return false;
 }
 
-bool JsonTable::updateObjectRowSpan(int row, int index, bool SPAN)
+bool JsonTable::updateRowSpan(int row, int column, bool SPAN)
 {
     int span = 1;
     bool res = true;
-    QString baseValue = this->getValue(row, index);
-    int baseSpan = this->getObjectRowSpan(row, index);
+    QString baseValue = this->getValue(row, column);
+    int baseSpan = this->getRowSpan(row, column);
     if(baseSpan != 0) return res;
 
     if(isEmptyArray(row)) return true;
 
     if( (row == (table.count()-1)) || !SPAN )
     {
-        res = res && setObjectRowSpan(row, index, span);
+        res = res && updateRowSpan(row, column, span);
         return res;
     }
 
     QString tempValue;
     for(int r=row+1; r<table.count(); r++)
     {
-        if(table[r].toArray().count() >= index)
+        if(table[r].toArray().count() >= column)
         {
-            tempValue = getValue(r, index);
+            tempValue = getValue(r, column);
             if(baseValue.compare(tempValue, Qt::CaseSensitive) == 0)
             {
                 span++;
-                res = res && setObjectRowSpan(row, index, span);
-                res = res && setObjectRowSpan(r, index, -1);
+                res = res && updateRowSpan(row, column, span);
+                res = res && updateRowSpan(r, column, -1);
             }
             else
             {
-                res = res && setObjectRowSpan(row, index, span);
+                res = res && updateRowSpan(row, column, span);
                 break;
             }
         }
         else
         {
-            res = res && setObjectRowSpan(row, index, span);
+            res = res && updateRowSpan(row, column, span);
             break;
         }
     }
@@ -327,38 +462,38 @@ bool JsonTable::updateObjectRowSpan(int row, int index, bool SPAN)
     return res;
 }
 
-bool JsonTable::updateArrayRowSpan(int row, bool SPAN)
+bool JsonTable::updateRowSpan(int row, bool SPAN)
 {
     QJsonArray Row = table[row].toArray();
     bool res = true;
     for(int i=0; i<Row.count(); i++)
     {
-        res = res && updateObjectRowSpan(row,i, SPAN);
+        res = res && updateRowSpan(row,i, SPAN);
     }
     return res;
 }
 
-bool JsonTable::updateTableRowSpan(bool SPAN)
+bool JsonTable::updateRowSpan(bool SPAN)
 {
     bool res = true;
     for(int r=0; r<table.count(); r++)
     {
-        res = res && updateArrayRowSpan(r, SPAN);
+        res = res && updateRowSpan(r, SPAN);
     }
     return res;
 }
 
-bool JsonTable::updateTableRowSpan(int ColumnIndex)
+bool JsonTable::updateRowSpan(int ColumnIndex)
 {
     bool res = true;
     for(int r=0; r<table.count(); r++)
     {
-        res = res && updateObjectRowSpan(r,ColumnIndex);
+        res = res && updateRowSpan(r,ColumnIndex);
     }
     return res;
 }
 
-void JsonTable::updateTableWidth(double viewPortWidth)
+void JsonTable::updateSameWidth(double viewPortWidth)
 {
     QJsonArray row;
     QJsonObject obj;
@@ -389,25 +524,169 @@ void JsonTable::updateTableWidth(double viewPortWidth)
             // same width
             width = viewPortWidth / rowCount;
             //update row object
-            updateRowWidth(r,width);
+            updateWidth(r,width);
         }
         else if(zeroLen < rowCount)
         {
             double leftWidth = viewPortWidth - usedWidth;
             double width = leftWidth / zeroLen;
-            updateRowWidth(r,zeroIndexes, width);
+            updateWidth(r,zeroIndexes, width);
         }
     }
 }
 
-void JsonTable::updateRowWidth(int row, double width)
+void JsonTable::updateFairCell(double viewPortWidth, bool wrapAll)
+{
+    // checks width and height
+    // * given width and hight    : no change
+    // * given width and height=0 : hight calculation - for wrap
+    // * width=0 and given hight  : width = max possible occupy
+    // * width=0 and hight=0      : fine width then hight calculation
+    // wrapAll : wrap cells even if they are with given height(increase hight)
+
+    QJsonArray Row;
+    QJsonObject Obj;
+    QMap<QString, double> who; // width-height-occupy
+    double width, height, occupy, fontSize;
+    QString type;
+    bool textFlag;
+
+    resetColumnMap(); // columnOccupy and columnWidth
+    calculateColumnMap(viewPortWidth);
+
+    for(int r=0; r < table.count(); r++)
+    {
+        Row = table[r].toArray();
+        for(int c=0; c < Row.count(); c++)
+        {
+            Obj = Row[c].toObject();
+            type = Obj.value("type").toString();
+            textFlag = (type.compare("text", Qt::CaseInsensitive) == 0)? true: false;
+            who = getWHO(Obj);
+            fontSize = Obj["style"].toObject()["font-size"].toDouble();
+
+             // * given width and hight
+            if( (who.value("width") > 0 ) && (who.value("height") > 0) )
+            {
+                if(wrapAll)
+                {
+                    if(textFlag)
+                    {
+                         height = calculateWrapHeight(who.value("occupy"), who.value("width"), fontSize);
+                         updateHeight(r, c, height);
+                    }
+                }
+                else
+                    continue;
+            }
+            // * given width and height=0 - TWO times wrap allowed
+            if( (who.value("width") > 0 ) && (who.value("height") == 0) )
+            {
+                width = who.value("width");
+                occupy = who.value("occupy");
+
+                if(width < occupy)
+                {
+                    height = calculateWrapHeight(who.value("occupy"), width, fontSize);
+                }
+                else height = fontSize;
+                if(textFlag)
+                {
+                    updateHeight(r,c, height);
+                }
+                continue;
+            }
+            // * width=0 and given hight
+            if( (who.value("width") == 0 ) && (who.value("height") > 0) )
+            {
+                if(columnWidth.contains(c))
+                    width = columnWidth[c];
+                else
+                {
+                    occupy = who.value("occupy");
+                    if(occupy <= 200)
+                        width = occupy;
+                    else
+                        width = 200;
+                }
+                updateWidth(r, c, width);
+
+                if(wrapAll)
+                {
+                    if(textFlag)
+                    {
+                        height = calculateWrapHeight(who.value("occupy"), width, fontSize);
+                        updateHeight(r,c, height);
+                    }
+                }
+            }
+            // * width=0 and hight=0
+            if( (who.value("width") == 0 ) && (who.value("height") == 0) )
+            {
+                width = 200;
+                if(columnWidth.contains(c))
+                    width = columnWidth.value(c);
+
+                occupy = who.value("occupy");
+
+                if(width < occupy)
+                    height = calculateWrapHeight(who.value("occupy"), width, fontSize);
+                else height = fontSize;
+                if(textFlag)
+                {
+                    updateHeight(r, c, height);
+                }
+                updateWidth(r, c, width);
+            }
+        }
+    }
+
+
+    updateHeight();
+}
+
+QMap<QString, double> JsonTable::getWHO(QJsonObject obj)
+{
+    QJsonObject style = obj["style"].toObject();
+    double width = style["width"].toDouble();
+    double height = style["height"].toDouble();
+    double occupy = style["occupy"].toDouble();
+
+    QMap<QString, double> map;
+    map["width"] = width;
+    map["height"] = height;
+    map["occupy"] = occupy;
+
+    return map;
+}
+
+double JsonTable::getMaxOccupy(int column)
+{
+    double occupy = 0, temp;
+    QJsonArray Row;
+    QJsonObject obj;
+    for(int r=0; r<table.count(); r++)
+    {
+        Row = table[r].toArray();
+        obj = Row[column].toObject();
+
+        temp = obj["style"].toObject()["occupy"].toDouble();
+
+        if(temp > occupy)
+            occupy = temp;
+    }
+
+    return occupy;
+}
+
+void JsonTable::updateWidth(int row, double width)
 {
     QJsonArray Row = table[row].toArray();
     QJsonObject obj;
     for( int o=0; o < Row.count(); o++)
     {
         obj = Row[o].toObject();
-        obj = updateObjectStyle(obj,"width", width);
+        obj = updateStyle(obj,"width", width);
         Row.removeAt(o);
         Row.insert(o, obj);
     }
@@ -416,7 +695,7 @@ void JsonTable::updateRowWidth(int row, double width)
     table.insert(row, Row);
 }
 
-void JsonTable::updateRowWidth(int row, QList<int> index, double width)
+void JsonTable::updateWidth(int row, QList<int> index, double width)
 {
     QJsonArray Row = table[row].toArray();
     QJsonObject obj;
@@ -425,7 +704,7 @@ void JsonTable::updateRowWidth(int row, QList<int> index, double width)
         if(index.contains(o))
         {
             obj = Row[o].toObject();
-            obj = updateObjectStyle(obj,"width", width);
+            obj = updateStyle(obj,"width", width);
             Row.removeAt(o);
             Row.insert(o, obj);
         }
@@ -433,6 +712,246 @@ void JsonTable::updateRowWidth(int row, QList<int> index, double width)
 
     table.removeAt(row);
     table.insert(row, Row);
+}
+
+void JsonTable::resetColumnMap()
+{
+    QJsonArray Row;
+    QJsonObject Obj;
+    columnOccupy.clear(); // max occupy for columns
+    columnWidth.clear(); // given width columns
+    double occupy, width;
+
+    for(int r=0; r < table.count(); r++)
+    {
+        Row = table[r].toArray();
+        for(int c=0; c < Row.count(); c++)
+        {
+            Obj = Row[c].toObject();
+            width = Obj["style"].toObject()["width"].toDouble();
+            if(width > 0)
+            {
+                if(columnWidth.contains(c))
+                {
+                    if(columnWidth.value(c) < width)
+                        columnWidth[c] = width;
+                }
+                else
+                    columnWidth[c] = width;
+            }
+            else
+            {
+                occupy = calculateOccupy(Obj);
+                if(columnOccupy.contains(c))
+                {
+                    if(columnOccupy.value(c) < occupy)
+                        columnOccupy[c] = occupy;
+                }
+                else
+                    columnOccupy[c] = occupy;
+            }
+        }
+    }
+
+    // columnWidth is prior to columnOccupy
+    foreach (int key, columnOccupy.keys())
+    {
+        if(columnWidth.contains(key))
+            columnOccupy.remove(key);
+    }
+
+    maxColumnOccupy = columnOccupy;
+}
+
+void JsonTable::calculateColumnMap(double viewPortWidth)
+{
+    double totalOccupy = 0, totalGivenWidth = 0, total;
+
+    foreach (int key, columnWidth.keys())
+    {
+        totalGivenWidth += columnWidth.value(key); // fixed width
+    }
+
+    foreach (int key, columnOccupy.keys())
+    {
+        totalOccupy += columnOccupy.value(key); // based on calculation
+    }
+
+    total = totalOccupy + totalGivenWidth;
+
+    if(total == viewPortWidth)
+    {
+        foreach (int key, columnOccupy.keys())
+        {
+            columnWidth[key] = columnOccupy.value(key);
+        }
+    }
+    else if(total < viewPortWidth)
+    {
+        //weight column width to fill the page
+        double diff = viewPortWidth - total;
+        int count = columnOccupy.size();
+        double increment = diff/count;
+        foreach (int key, columnOccupy.keys())
+        {
+            columnWidth[key] = columnOccupy.value(key) + increment;
+        }
+    }
+    else
+    {
+        // total > viewPort
+        // step by step threshold-based
+        // all columns     : if still decrease needed do it on all columns
+
+        updateColumnOccupy(viewPortWidth, 4000, 4000); // columns bigger than 4000 contributes but floor-value is 3500
+        updateColumnOccupy(viewPortWidth, 3000, 3000);
+        updateColumnOccupy(viewPortWidth, 2000, 2000);
+        updateColumnOccupy(viewPortWidth, 1500, 1500);
+        updateColumnOccupy(viewPortWidth, 1200, 1200);
+        updateColumnOccupy(viewPortWidth, 1000, 1000);
+        updateColumnOccupy(viewPortWidth, 800, 800);
+        updateColumnOccupy(viewPortWidth, 600, 600);
+        updateColumnOccupy(viewPortWidth, 400, 400);
+        updateColumnOccupy(viewPortWidth, 200, 200);
+        updateColumnOccupy(viewPortWidth, 150, 150);
+        updateColumnOccupy(viewPortWidth); // all columns contribute
+
+        foreach (int key, columnOccupy.keys())
+        {
+            columnWidth[key] = columnOccupy.value(key);
+        }
+
+    }
+}
+
+double JsonTable::calculateWrapHeight(double occupy, double width, double fontSize)
+{
+    //fontSize pt
+    // px = 4/3pt
+    int lines = ceil(occupy / width);
+    double height = lines * fontSize * 4/3;
+    return height;
+}
+
+void JsonTable::updateColumnOccupy(double viewPortWidth, int upperThreshold, int breakPoint)
+{
+    double diff,total = 0, totalGivenWidth=0,totalOccupy=0, selectedSum=0;
+    QMap<int, double> initialMap = columnOccupy;
+
+    foreach (int key, columnWidth.keys())
+    {
+        totalGivenWidth += columnWidth.value(key); // fixed width
+    }
+
+    foreach (int key, columnOccupy.keys())
+    {
+        totalOccupy += columnOccupy.value(key); // based on calculation
+        if(columnOccupy.value(key) > upperThreshold)
+        {
+            selectedSum += columnOccupy.value(key);
+        }
+    }
+
+    total = totalOccupy + totalGivenWidth;
+
+    diff = total - viewPortWidth;
+
+    if(diff > 0)
+    {
+        double val, totalDecrease = 0, weight;
+        foreach (int key, columnOccupy.keys())
+        {
+            if(columnOccupy.value(key) > upperThreshold)
+            {
+                val = columnOccupy.value(key) * (1 - diff / selectedSum);
+                if(val < breakPoint)
+                    val = breakPoint;
+
+                totalDecrease += columnOccupy[key] - val;
+                columnOccupy[key] = val;
+            }
+        }
+
+        //justify columns based on their weight
+        foreach (int key, columnOccupy.keys())
+        {
+            if(columnOccupy.value(key) > upperThreshold)
+            {
+                weight = columnOccupy.value(key) / maxColumnOccupy.value(key); // 0~1
+                columnOccupy[key] = initialMap.value(key) - totalDecrease * weight;
+            }
+        }
+    }
+}
+
+double JsonTable::calculateOccupy(QJsonObject &obj)
+{
+    QString fontFamily = obj["style"].toObject()["font-family"].toString();
+    int fontSize = obj["style"].toObject()["font-size"].toInt();
+    double width = obj["style"].toObject()["width"].toDouble();
+    bool bold = obj["style"].toObject()["bold"].toBool();
+
+    QString value = obj["value"].toString();
+    QString type =  obj["type"].toString();
+    if(type.compare("img", Qt::CaseInsensitive) == 0)
+    {
+        if(width > 0)
+            return width;
+        else
+        {
+            // find image width
+            QPixmap img(value);
+            width = img.size().width();
+            return width;
+        }
+    }
+
+    //text-value object
+    QFont font(fontFamily, fontSize);
+    //font.setPointSize(fontSize);
+    font.setBold(bold);
+    QFontMetrics fm(font);
+    width = fm.horizontalAdvance(value);
+    return width;
+}
+
+void JsonTable::updateOccupy(int row, int column)
+{
+    QJsonArray Row = table[row].toArray();
+    QJsonObject obj = Row[column].toObject();
+
+    obj = updateOccupy(obj);
+
+    Row.removeAt(column);
+    Row.insert(column, obj);
+
+    table.removeAt(row);
+    table.insert(row, Row);
+}
+
+QJsonObject JsonTable::updateOccupy(QJsonObject obj)
+{
+    double occupy = calculateOccupy(obj);
+    QJsonObject style = obj["style"].toObject();
+    QString value = obj["value"].toString();
+    QString type = obj["type"].toString();
+
+    if(type.compare("text", Qt::CaseInsensitive) == 0)
+    {
+        // check occupy validation
+        int len = value.length();
+        // consider minimum pixel count to reprtesent character
+        int min = 2;
+        double temp = len * min;
+        if(occupy < temp)
+            occupy = temp;
+    }
+
+    style["occupy"] = occupy;
+    obj.remove("style");
+    obj["style"] = style;
+
+    return obj;
 }
 
 
