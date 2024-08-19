@@ -1,72 +1,66 @@
 #include <QApplication>
 #include "exceljsontable.h"
-#include "lib/jsontable.h"
 #include <QJsonArray>
 #include <QJsonObject>
+#include <lib/tableTemplate.h>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    JsonTable title(40,"#00A","#eee","tahoma", 16);
-    JsonTable table(40,"#00A","#eee","tahoma", 16);
+    TableTemplate tableTemplate(4);
+    // page title
+    tableTemplate.appendTitle({"img", "text","img"}, {":/danet.png", "DaNet Report", ":/tct.png"}, {"", "#005", ""}, {"left", "center", "right"});
+    tableTemplate.appendTitle({"text", "text"}, {"2-BA Saloon Data", "1403/05/29"}, {"#050", "#500"}, {"left", "right"});
 
-    //title repeated on eatch sheet
-    QJsonArray Row;
-    QJsonObject style = title.createStyle("DSLAM", 0, 50, "#008", "#eee","tahoma", 18,true,"center",1,5,5);
-    QJsonObject obj = title.createObject("text", "Area 2 DSLAM Plan", style);
-    Row = title.addObjectToRow(Row, obj);
-    title.addRowToTable(Row);
+    //table
+    tableTemplate.setTableHeader({"Menu-1", "Menu-2", "Menu-3", "Menu-4"});
 
-    //content table
-    style = table.createStyle("DSLAM Connections", 0, 20, "#008", "#eef","tahoma", 14,true,"center",1);
-    Row = table.createObjects("text", {"Exchange", "Saloon", "Interface", "Module"}, style);
-    table.addRowToTable(Row);
+    tableTemplate.appentRow({"Lorem-1 ipsum odor amet, consectetuer adipiscing elit. Blandit eget vulputate cubilia convallis penatibus vivamus ante ante? Odio felis libero auctor elit, parturient donec porta tristique nullam. Scelerisque penatibus maximus erat aptent egestas mus. Eu sed euismod, hac semper arcu tortor ullamcorper vestibulum.", "Lorem-1", "Ipsum-1", "L-I-1"});
+    tableTemplate.appentRow({"Lorem-2", "Data", "CX600X16"});
+    tableTemplate.appentRow({"Lorem-3 ipsum", "PCM", "CX600X16", "Lorem ipsum odor amet, consectetuer adipiscing elit. Non arcu scelerisque nascetur elementum ante iaculis sapien. Facilisi faucibus dolor arcu ante consequat accumsan facilisi."});
+    tableTemplate.appentRow({"lorem-4", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-5 ", "Data", "CX600X16"});
+    tableTemplate.appentRow( {"Lorem-6", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-7", "Switch", "Lorem ipsum odor amet, consectetuer adipiscing elit.Lorem ipsum odor amet, consectetuer adipiscing elit.Lorem ipsum odor amet, consectetuer adipiscing elit.", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-8", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-9", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-10", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-11", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-12", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-13", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-14", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-15", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-16", "Switch", "CX600X16 NetEngine Huawei", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-17", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-18", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-1 ipsum odor amet, consectetuer adipiscing elit. Blandit eget vulputate cubilia convallis penatibus vivamus ante ante? Odio felis libero auctor elit, parturient donec porta tristique nullam. Scelerisque penatibus maximus erat aptent egestas mus. Eu sed euismod, hac semper arcu tortor ullamcorper vestibulum.", "Lorem-1", "Ipsum-1", "L-I-1"});
+    tableTemplate.appentRow({"Lorem-2", "Data", "CX600X16"});
+    tableTemplate.appentRow({"Lorem-3 ipsum", "PCM", "CX600X16", "Lorem ipsum odor amet, consectetuer adipiscing elit. Non arcu scelerisque nascetur elementum ante iaculis sapien. Facilisi faucibus dolor arcu ante consequat accumsan facilisi."});
+    tableTemplate.appentRow({"lorem-4", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-5 ", "Data", "CX600X16"});
+    tableTemplate.appentRow( {"Lorem-6", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-7", "Switch", "Lorem ipsum odor amet, consectetuer adipiscing elit.Lorem ipsum odor amet, consectetuer adipiscing elit.Lorem ipsum odor amet, consectetuer adipiscing elit.", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-8", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-9", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-10", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-11", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-12", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-13", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-14", "PCM", "CX600X16", "10G 3/0/0"});
+    tableTemplate.appentRow({"Lorem-15", "Switch", "CX600X16", "1G 10/0/0"});
+    tableTemplate.appentRow({"Lorem-16", "Switch", "CX600X16 NetEngine Huawei", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-17", "Switch", "CX600X16", "10G 11/0/0"});
+    tableTemplate.appentRow({"Lorem-18", "Switch", "CX600X16", "10G 11/0/0"});
 
-    style = table.createStyle("DSLAM Connections", 0, 20, "#080", "#efe","tahoma", 14,false,"left",1);
-    Row = table.createObjects("text", {"BA1", "Switch1", "1G 0/7/1", "SX1 500m"}, style);
-    table.addRowToTable(Row);
+    tableTemplate.highlight(5);
 
-    Row = table.createObjects("text", {"BA2", "Switch2", "1G 0/7/2", "SX2 500m"}, style);
-    table.addRowToTable(Row);
+    QJsonArray table = tableTemplate.getTable(1500,2);
+    QJsonArray title = tableTemplate.getTitle(1500);
 
-    Row = table.createObjects("text", {"BA3", "Switch3", "1G 0/7/3", "SX3 500m"}, style);
-    table.addRowToTable(Row);
+    ExcelJsonTable ejs(title, table);
 
-    Row = table.createObjects("text", {"BA4", "Switch4", "1G 0/7/4", "SX4 500m"}, style);
-    table.addRowToTable(Row);
-
-    Row = table.createObjects("text", {"BA5", "Switch5", "1G 0/7/5", "SX5 500m"}, style);
-    table.addRowToTable(Row);
-
-    Row = table.createObjects("text", {"BA6", "Switch6", "1G 0/7/6", "SX6 500m"}, style);
-    table.addRowToTable(Row);
-
-    Row = table.createObjects("text", {"BA7", "Switch7", "1G 0/7/7", "SX7 500m"}, style);
-    table.addRowToTable(Row);
-
-    table.addRowToTable(); // new sheet
-
-    style = table.createStyle("Metro Connections", 0, 20, "#808", "#fef","tahoma", 14,true,"center",1);
-    Row = table.createObjects("text", {"Exchange", "Device", "Interface"}, style);
-    table.addRowToTable(Row);
-
-
-    style = table.createStyle("Metro Connections", 0, 20, "#080", "#ffe","tahoma", 14,false,"left",1);
-    Row = table.createObjects("text", {"BA1", "CX600-x16", "1G 1/0/0"}, style);
-    table.addRowToTable(Row);
-
-    Row = table.createObjects("text", {"BA2", "CX600-x8", "1G 2/0/0"}, style);
-    table.addRowToTable(Row);
-
-    Row = table.createObjects("text", {"BA3", "S12700", "1G 3/0/0"}, style);
-    table.addRowToTable(Row);
-
-
-
-    ExcelJsonTable ejs(title.table, table.table);
-
-    ejs.exportExcel("test.xlsx");
+    ejs.exportExcel("test.xlsx", {});
 
 
     return 1;
