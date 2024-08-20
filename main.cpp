@@ -55,12 +55,11 @@ int main(int argc, char *argv[])
 
     tableTemplate.highlight(5);
 
-    QJsonArray table = tableTemplate.getTable(1500,2);
+    QJsonArray table = tableTemplate.getTable(1500, 2);
     QJsonArray title = tableTemplate.getTitle(1500);
 
-    ExcelJsonTable ejs(title, table);
-
-    ejs.exportExcel("test.xlsx", {});
+    ExcelJsonTable ejs(title, table, "file.xlsx",{0},1500);
+    ejs.exportExcel();
 
 
     return 1;

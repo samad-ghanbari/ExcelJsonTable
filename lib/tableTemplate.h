@@ -10,17 +10,18 @@
 class TableTemplate
 {
 public:
-    explicit TableTemplate(int _columnCount, QJsonObject _titleStyle={}, QJsonObject _contentStyle={} ) :
-        table(40,"#000", "#FFF","tahoma",14), title(50)
+    explicit TableTemplate(int _columnCount, QJsonObject _headerStyle={}, QJsonObject _contentStyle={} ) :
+        table(40,"#000", "#FFF","tahoma",14), title(50,"#000", "#DDD","Tahoma",14)
     {
         columnCount = _columnCount;
 
-        if(_titleStyle.isEmpty())
+        if(_headerStyle.isEmpty())
         {
             headerStyle = table.createStyle("Table Header",0,0,"#558","#EEF","Tahoma",14,true,"center",1,0,2);
         }
         else
-            headerStyle = _titleStyle;
+            headerStyle = _headerStyle;
+
         if(_contentStyle.isEmpty())
         {
             contentStyle = table.createStyle("Table Content",0,0,NULL,NULL,NULL,0,false,"left");
@@ -43,9 +44,9 @@ public:
         for(int i = 0; i < types.size(); i++)
         {
             if(types[i].compare("img", Qt::CaseInsensitive) == 0)
-                style = title.createStyle("Header Image", 50, 50, NULL, "transparent", NULL,0,false,aligns[i], 0);
+                style = title.createStyle("Header Image", 50, 50, NULL, NULL, NULL,0,false,aligns[i], 0);
             else
-                style = title.createStyle("header Text", 0, 0, colors[i], "transparent", "Tahoma", 18, true, aligns[i], 0 );
+                style = title.createStyle("header Text", 0, 0, colors[i], NULL, "Tahoma", 16, true, aligns[i], 0 );
 
             QJsonObject obj = title.createObject(types[i], values[i], style);
             row = title.addObjectToRow(row, obj);

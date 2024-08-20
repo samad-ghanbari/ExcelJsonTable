@@ -11,11 +11,10 @@ class ExcelJsonTable : public QObject
 {
     Q_OBJECT
 public:
-    explicit ExcelJsonTable(QJsonArray _titleArray, QJsonArray _tableArray, QString _outputPath, QList<int> _repeatedRows, double width = 1000, QObject *parent = nullptr);
-    void exportExcel();
-    void writeCell(int sheetIndex, int row, int column, QJsonObject Obj);
-    void writeCell(QJsonObject obj, QString cell);
-    void writeRow(QJsonArray Row, bool merge);
+    explicit ExcelJsonTable(QJsonArray _titleArray, QJsonArray _tableArray, QString _outputPath, QList<int> _repeatedRows, double width = 1500, QObject *parent = nullptr);
+    void exportExcel(bool _skipImages = true);
+    void writeCell(int row, int column, QJsonObject Obj);
+    void writeRow(QJsonArray Row);
     QString getSheetName(int row);
     int getStartRow(int sheetIndex);
     void updateColumnWidthMap(int sheetIndex);
@@ -31,6 +30,7 @@ private:
     int sheetIndex;
     double viewPortWidth;
     int currentRow, currentColumn;
+    bool skipImages;
 
 };
 

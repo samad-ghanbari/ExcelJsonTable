@@ -21,7 +21,8 @@ SOURCES += \
 
 HEADERS += \
     exceljsontable.h \
-    lib/jsontable.h
+    lib/jsontable.h \
+    lib/tableTemplate.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
