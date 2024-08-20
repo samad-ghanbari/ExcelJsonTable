@@ -11,7 +11,7 @@ class TableTemplate
 {
 public:
     explicit TableTemplate(int _columnCount, QJsonObject _headerStyle={}, QJsonObject _contentStyle={} ) :
-        table(40,"#000", "#FFF","tahoma",14), title(50,"#000", "#DDD","Tahoma",14)
+        table(20,"#000", "#FFF","tahoma",14), title(20,"#000", "#DDD","Tahoma",14)
     {
         columnCount = _columnCount;
 
@@ -47,6 +47,36 @@ public:
                 style = title.createStyle("Header Image", 50, 50, NULL, NULL, NULL,0,false,aligns[i], 0);
             else
                 style = title.createStyle("header Text", 0, 0, colors[i], NULL, "Tahoma", 16, true, aligns[i], 0 );
+
+            QJsonObject obj = title.createObject(types[i], values[i], style);
+            row = title.addObjectToRow(row, obj);
+        }
+
+        title.addRowToTable(row);
+        return true;
+    }
+
+    bool appendTitle(QStringList types, QStringList values, QList<double> widths, QList<double> heights, QStringList colors, QStringList aligns)
+    {
+        if(types.size() != values.size())
+            return false;
+        if(types.size() != colors.size())
+            return false;
+        if(aligns.size() != colors.size())
+            return false;
+        if(colors.size() != widths.size())
+            return false;
+        if(widths.size() != heights.size())
+            return false;
+
+        QJsonArray row;
+        QJsonObject style;
+        for(int i = 0; i < types.size(); i++)
+        {
+            if(types[i].compare("img", Qt::CaseInsensitive) == 0)
+                style = title.createStyle("Header Image", widths[i], heights[i], NULL, NULL, NULL,0,false,aligns[i], 0);
+            else
+                style = title.createStyle("header Text", widths[i], heights[i], colors[i], NULL, "Tahoma", 16, true, aligns[i], 0 );
 
             QJsonObject obj = title.createObject(types[i], values[i], style);
             row = title.addObjectToRow(row, obj);
@@ -94,6 +124,36 @@ public:
         else
             return false;
 
+        return true;
+    }
+
+    bool appendRow(QStringList types, QStringList values, QList<double> widths, QList<double> heights, QStringList colors, QStringList aligns)
+    {
+        if(types.size() != values.size())
+            return false;
+        if(types.size() != colors.size())
+            return false;
+        if(aligns.size() != colors.size())
+            return false;
+        if(colors.size() != widths.size())
+            return false;
+        if(widths.size() != heights.size())
+            return false;
+
+        QJsonArray row;
+        QJsonObject style;
+        for(int i = 0; i < types.size(); i++)
+        {
+            if(types[i].compare("img", Qt::CaseInsensitive) == 0)
+                style = title.createStyle("Table Image", widths[i], heights[i], NULL, NULL, NULL,0,false,aligns[i], 0);
+            else
+                style = title.createStyle("Table Content", widths[i],heights[i], colors[i], NULL, "Tahoma", 16, true, aligns[i], 0 );
+
+            QJsonObject obj = title.createObject(types[i], values[i], style);
+            row = title.addObjectToRow(row, obj);
+        }
+
+        table.addRowToTable(row);
         return true;
     }
 

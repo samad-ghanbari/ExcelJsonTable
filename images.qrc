@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>ansible.png</file>
+        <file>kuber.png</file>
+    </qresource>
+</RCC>

@@ -1,22 +1,25 @@
 #include "exceljsontable.h"
 #include <QJsonArray>
 #include <QJsonObject>
-#include <QDebug>
+#include <QImage>
 #include <QtMath>
 
-ExcelJsonTable::ExcelJsonTable(QJsonArray _titleArray, QJsonArray _tableArray, QString _outputPath, QList<int> _repeatedRows,double width, QObject *parent)
+ExcelJsonTable::ExcelJsonTable(QObject *parent)
     : QObject{parent}
+{
+}
+
+void ExcelJsonTable::setTables(QJsonArray _titleArray, QJsonArray _tableArray)
 {
     tableArray = _tableArray;
     titleArray = _titleArray;
-
-    outputPath = _outputPath;
-    repeatedRows = _repeatedRows;
-    viewPortWidth = width;
 }
 
-void ExcelJsonTable::exportExcel(bool _skipImages)
+void ExcelJsonTable::exportExcel(QString _outputPath, QList<int> _repeatedRows, bool _skipImages)
 {
+    outputPath = _outputPath;
+    repeatedRows = _repeatedRows;
+
     QString sheetName = doc.currentSheet()->sheetName();
     QString newName = getSheetName(1);
     doc.renameSheet( sheetName, newName );
@@ -51,7 +54,7 @@ void ExcelJsonTable::exportExcel(bool _skipImages)
         writeRow(Row);
     }
 
-
+    //doc.autosizeColumnWidth();
     doc.saveAs(outputPath);
 }
 
@@ -73,18 +76,17 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
     QString backgroundColor = style["background-color"].toString();
     QString fontFamily = style["font-family"].toString();
     QString align =  style["align"].toString();
-    // 1cm = 37.80pt
-    // 1pt = 72/96 px = 0.75 px
-    double width = style["width"].toDouble() /37.80;
-    double height = style["height"].toDouble();
+
+    // width :  x 7 pt
+    // height : pt
+    double width = style["width"].toDouble() * 0.75 / 7;
+    double height = style["height"].toDouble() * 0.75;
     int fontSize = style["font-size"].toInt();
     int border = 1;//style["border"].toInt();
     //int rowSpan = style["row-span"].toInt();
     bool bold = style["bold"].toBool();
 
-
-    if(width < 100) width = 100;
-
+    if(width < 15) width = 15; // in excel file: width: 105 >> 105/7 = 15
 
     doc.setColumnWidth(column, width);
     doc.setRowHeight(row, height);
@@ -114,8 +116,26 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
     else if(border == 0)
         format.setBorderStyle(QXlsx::Format::BorderNone);
 
+    if(type.compare("text", Qt::CaseInsensitive) == 0)
+        doc.write(row, column, value, format);
+    else
+    {
+        QImage img(value.toString());
+        int imgWidth = img.width();
+        int imgHeight = img.height();
+        if(imgWidth > width)
+        {
+            img.scaledToWidth(width - 10);
+            imgWidth = img.width();
+        }
+        if(imgHeight > height)
+        {
+            img.scaledToHeight(height - 10);
+            imgHeight = img.height();
+        }
 
-    doc.write(row, column, value, format);
+        doc.insertImage(row, column, img);
+    }
 }
 
 void ExcelJsonTable::writeRow(QJsonArray Row)
@@ -230,5 +250,49 @@ int ExcelJsonTable::getSheetCount()
     }
 
     return count;
+}
+
+QJsonArray ExcelJsonTable::excelToJson(QString filePath, int sheetIndex, int headerRow, int startColumn, int endColumn)
+{
+    /*
+      [
+           [{menu1: val1}, {menu2: val2}],
+           [].
+           ...
+      ]
+     */
+    QXlsx::Document file(filePath);
+    QJsonArray jTable;
+    QMap<int, QString> headers;
+    QString val;
+    if(endColumn == -1)
+        //to the end
+        endColumn = file.dimension().lastColumn();
+
+    int lastRow = file.dimension().lastRow();
+
+    if(file.load())
+    {
+        file.selectSheet(sheetIndex);
+        //get headers
+        for(int i=startColumn; i <= endColumn; i++)
+            headers[i] = file.cellAt(headerRow,i)->value().toString();
+
+        for(int r=headerRow+1; r <= lastRow; r++)
+        {
+            QJsonArray array;
+            for(int c=startColumn; c <= endColumn; c++)
+            {
+                val = file.cellAt(r,c)->value().toString();
+                QJsonObject obj;
+                obj[headers[c]] = val;
+
+                array.append(obj);
+            }
+
+            jTable.append(array);
+        }
+    }
+    return jTable;
 }
 
