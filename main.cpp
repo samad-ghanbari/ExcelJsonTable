@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 
     TableTemplate tableTemplate(4);
     // page title
-    tableTemplate.appendTitle({"img", "text","img"}, {":/danet.png", "DaNet Report", ":/tct.png"},{"", "#005", ""}, {"left", "center", "right"});
+    //tableTemplate.appendTitle({"img", "text","img"}, {":/danet.png", "DaNet Report", ":/danet.png"},{"", "#005", ""}, {"left", "center", "right"});
     tableTemplate.appendTitle({"text", "text"}, {"2-BA Saloon Data", "1403/05/29"}, {"#050", "#500"}, {"left", "right"});
 
     //table
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     tableTemplate.appentRow({"lorem-4", "Switch", "CX600X16", "1G 10/0/0"});
     tableTemplate.appentRow({"Lorem-5 ", "Data", "CX600X16"});
 
-    tableTemplate.appendRow({"img", "text", "text", "text"}, {":/danet.png", "test" , "test2", "test3"},{0,0,0,0}, {20,0,0,0},{"#F00", "#F55", "#F33", "#F80"},{"center", "right", "center", "right"});
+    tableTemplate.appendRow({"text", "img", "text", "text"}, {"text",":/tct.png", "test2", "test3"},{0,0,0,0}, {0,0,0,0},{"#F00", "#F55", "#F33", "#F80"},{"center", "right", "center", "right"});
 
     tableTemplate.appentRow( {"Lorem-6", "PCM", "CX600X16", "10G 3/0/0"});
     tableTemplate.appentRow({"Lorem-7", "Switch", "Lorem ipsum odor amet, consectetuer adipiscing elit.Lorem ipsum odor amet, consectetuer adipiscing elit.Lorem ipsum odor amet, consectetuer adipiscing elit.", "1G 10/0/0"});

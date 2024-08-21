@@ -3,6 +3,7 @@
 #include <QJsonObject>
 #include <QImage>
 #include <QtMath>
+#include <QXlsx/header/xlsxworksheet.h>
 
 ExcelJsonTable::ExcelJsonTable(QObject *parent)
     : QObject{parent}
@@ -63,7 +64,6 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
     // cell index starts from 1
     // sheet index starts from 0
 
-    //doc.selectSheet(sheetIndex);
     QString type = Obj["type"].toString();
     if(type.compare("img", Qt::CaseInsensitive) == 0)
         if(skipImages) return;
@@ -76,7 +76,6 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
     QString backgroundColor = style["background-color"].toString();
     QString fontFamily = style["font-family"].toString();
     QString align =  style["align"].toString();
-
     // width :  x 7 pt
     // height : pt
     double width = style["width"].toDouble() * 0.75 / 7;
@@ -121,29 +120,26 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
     else
     {
         QImage img(value.toString());
-        int imgWidth = img.width();
-        int imgHeight = img.height();
+        double imgWidth = img.width() * 0.75 / 7 ; // pixel to pt of excel cell
+        double imgHeight = img.height() * 0.75;
         if(imgWidth > width)
         {
-            img.scaledToWidth(width - 10);
-            imgWidth = img.width();
-        }
-        if(imgHeight > height)
-        {
-            img.scaledToHeight(height - 10);
-            imgHeight = img.height();
+            updateWidth(tableArray,column,imgWidth);
         }
 
-        doc.insertImage(row, column, img);
+        if(imgHeight > height)
+        {
+
+            updateHeight(tableArray, row, imgHeight);
+        }
+
+        doc.insertImage(row-1, column-1, img); // images should have the same pixel/inch
     }
 }
 
 void ExcelJsonTable::writeRow(QJsonArray Row)
 {
     QJsonObject obj;
-    int columnCount = getMaxColumnCount(sheetIndex);
-    int rowCount = Row.size();
-    bool columnToRow = ( rowCount < columnCount)? true : false;
     for(int i=0; i < Row.size(); i++)
     {
         obj = Row[i].toObject();
@@ -151,23 +147,48 @@ void ExcelJsonTable::writeRow(QJsonArray Row)
             if(skipImages)
                 continue;
 
-        if(columnToRow)
-        {
-            QXlsx::CellRange range(currentRow, 1, currentRow, columnCount);
-            doc.mergeCells(range);
-            writeCell(currentRow, currentColumn, obj);
-            currentRow++;
-        }
-        else
-        {
-            writeCell(currentRow, currentColumn, obj);
-            currentColumn++;
-        }
+        writeCell(currentRow, currentColumn, obj);
+        currentColumn++;
     }
-    if(!columnToRow)
-        currentRow++;
+
+    currentRow++;
     currentColumn = 1;
 
+}
+
+void ExcelJsonTable::updateWidth(QJsonArray &table, int column, double width)
+{
+    QJsonObject obj, style;
+    QJsonArray Row;
+    for(int r=0; r < table.size(); r++)
+    {
+        Row = table[r].toArray();
+        obj = Row[column].toObject();
+        style = obj["style"].toObject();
+        style["width"] = width;
+        Row.removeAt(column);
+        Row.insert(column, obj);
+        table.removeAt(r);
+        table.insert(r, Row);
+    }
+}
+
+void ExcelJsonTable::updateHeight(QJsonArray &table, int row, double height)
+{
+    QJsonObject obj, style;
+    QJsonArray Row = table[row].toArray();
+
+    for(int c=0; c < Row.size(); c++)
+    {
+        obj = Row[c].toObject();
+        style = obj["style"].toObject();
+        style["height"] = height;
+        Row.removeAt(c);
+        Row.insert(c, obj);
+    }
+
+    table.removeAt(row);
+    table.insert(row, Row);
 }
 
 QString ExcelJsonTable::getSheetName(int row)

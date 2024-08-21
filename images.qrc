@@ -2,5 +2,7 @@
     <qresource prefix="/">
         <file>ansible.png</file>
         <file>kuber.png</file>
+        <file>tct.png</file>
+        <file>danet.png</file>
     </qresource>
 </RCC>

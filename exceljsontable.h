@@ -16,6 +16,8 @@ public:
     void exportExcel(QString _outputPath, QList<int> _repeatedRows, bool _skipImages = true);
     void writeCell(int row, int column, QJsonObject Obj);
     void writeRow(QJsonArray Row);
+    void updateWidth(QJsonArray &table, int column, double width);
+    void updateHeight(QJsonArray &table, int row,  double height);
     QString getSheetName(int row);
     int getStartRow(int sheetIndex);
     void updateColumnWidthMap(int sheetIndex);
