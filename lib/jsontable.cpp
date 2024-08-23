@@ -7,10 +7,10 @@
 #include <QPixmap>
 #include <QtMath>
 
-JsonTable::JsonTable(double _default_height, QString _default_color, QString _default_background_color, QString _default_font_family, double _default_font_size, int _default_hPadding, int _default_vPadding, QObject *parent )
+JsonTable::JsonTable(QString _default_color, QString _default_background_color, QString _default_font_family, double _default_font_size, int _default_hPadding, int _default_vPadding, QObject *parent )
     : QObject{parent}
 {
-    this->default_height = _default_height;
+    this->default_height = 0;
     this->default_background_color = _default_background_color;
     this->default_color = _default_color;
     this->default_font_size = _default_font_size;
@@ -828,7 +828,7 @@ double JsonTable::calculateWrapHeight(double occupy, double width, double fontSi
 {
     //fontSize pt
     // px = 4/3pt
-    int lines = ceil(occupy / width);
+    int lines = ceil(occupy / width) + 2;
     double height = lines * fontSize * 4/3;
     return height;
 }

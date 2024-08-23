@@ -46,7 +46,7 @@ class JsonTable : public QObject
 {
     Q_OBJECT
 public:
-    explicit JsonTable(double _default_height,  QString _default_color="#000", QString _default_background_color="#eee", QString _default_font_family="tahoma", double _default_font_size=14, int _default_hPadding=5, int _default_vPadding=5,  QObject *parent = nullptr);
+    explicit JsonTable( QString _default_color="#000", QString _default_background_color="#eee", QString _default_font_family="tahoma", double _default_font_size=14, int _default_hPadding=5, int _default_vPadding=5,  QObject *parent = nullptr);
     QJsonObject createStyle(QString _name, double _width=0, double _height=0, QString _color=NULL, QString _backgroundColor=NULL, QString _fontFamily=NULL, double _fontSize=0, bool _bold=false, QString _align="center", int _border=1, int _hPadding=0, int _vPadding=0, int _rowSpan=0);
     QJsonObject createObject(QString _type, QString _value, QJsonObject _style);
     QJsonArray createObjects(QString _type, QStringList  _values, QJsonObject _style);

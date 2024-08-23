@@ -3,7 +3,7 @@
 #include <QJsonObject>
 #include <QImage>
 #include <QtMath>
-#include <QXlsx/header/xlsxworksheet.h>
+#include <QPainter>
 
 ExcelJsonTable::ExcelJsonTable(QObject *parent)
     : QObject{parent}
@@ -30,6 +30,7 @@ void ExcelJsonTable::exportExcel(QString _outputPath, QList<int> _repeatedRows, 
     updateColumnWidthMap(sheetIndex);
     currentRow = 1;
     currentColumn = 1;
+    int columnCount = getMaxColumnCount(sheetIndex);
 
     QJsonArray  Row;
     QJsonObject obj;
@@ -40,7 +41,7 @@ void ExcelJsonTable::exportExcel(QString _outputPath, QList<int> _repeatedRows, 
         writeRow(Row);
     }
 
-    int columnCount = getMaxColumnCount(sheetIndex);
+
     QXlsx::CellRange range(currentRow, 1, currentRow, columnCount);
     QXlsx::Format format;
     format.setPatternBackgroundColor(QColor(QString("#55A")));
@@ -59,6 +60,117 @@ void ExcelJsonTable::exportExcel(QString _outputPath, QList<int> _repeatedRows, 
     doc.saveAs(outputPath);
 }
 
+QXlsx::Format ExcelJsonTable::getFormat(QJsonObject Obj)
+{
+    QXlsx::Format format;
+
+    QJsonObject style = Obj["style"].toObject();
+    //name; width; height; color; background-color; font-family;  font-size; bold; align; border; row-span
+    //QString name = style["name"].toString();
+    QString color = style["color"].toString();
+    QString backgroundColor = style["background-color"].toString();
+    QString fontFamily = style["font-family"].toString();
+    QString align =  style["align"].toString();
+
+    int fontSize = style["font-size"].toInt();
+    int border = 1;//style["border"].toInt();
+    //int rowSpan = style["row-span"].toInt();
+    bool bold = style["bold"].toBool();
+
+    QFont font(fontFamily);
+    font.setBold(bold);
+    font.setPointSize(fontSize);
+    format.setFont(font);
+    format.setFontColor(QColor(color));
+    format.setTextWrap(true);
+    if(align.compare("center", Qt::CaseInsensitive) == 0)
+        format.setHorizontalAlignment(QXlsx::Format::AlignHCenter);
+    else if(align.compare("right", Qt::CaseInsensitive) == 0)
+        format.setHorizontalAlignment(QXlsx::Format::AlignRight);
+    else
+        format.setHorizontalAlignment(QXlsx::Format::AlignLeft);
+    format.setVerticalAlignment(QXlsx::Format::AlignVCenter);
+
+    format.setPatternBackgroundColor(QColor(backgroundColor));
+
+    if(border > 2)
+        format.setBorderStyle(QXlsx::Format::BorderThick);
+    else if(border == 2)
+        format.setBorderStyle(QXlsx::Format::BorderDouble);
+    else if(border == 1)
+        format.setBorderStyle(QXlsx::Format::BorderThin);
+    else if(border == 0)
+        format.setBorderStyle(QXlsx::Format::BorderNone);
+
+
+
+    return format;
+}
+
+void ExcelJsonTable::setCellSize(int row, int column, QJsonObject Obj)
+{
+    QJsonObject style = Obj["style"].toObject();
+    // width :  x 7 pt
+    // height : pt
+    double width = style["width"].toDouble() * 0.75 / 7;
+    double height = style["height"].toDouble() * 0.75;
+    if(width < 15)
+    {
+        width = 15; // in excel file: width: 105 >> 105/7 = 15
+    }
+
+    doc.setColumnWidth(column, width);
+    doc.setRowHeight(row, height);
+}
+
+QJsonObject ExcelJsonTable::getSingleObject(QJsonArray Row, bool skipImage)
+{
+    // text
+    // img
+    // in skipImage
+    //      img text img
+    //      img text
+    //      text img
+
+    if(Row.size() == 1)
+    {
+        if(skipImage)
+        {
+            if(Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
+                return Row[0].toObject();
+            else
+                return {};
+        }
+        else
+        {
+            return Row[0].toObject();
+        }
+    }
+    else if(Row.size() == 2)
+    {
+        // skipImage is true by default
+        if(Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
+            return Row[0].toObject();
+        else if(Row[1].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
+            return Row[1].toObject();
+        else return {};
+
+    }
+    else if(Row.size() == 3)
+    {
+        // skipImage is true by default
+        if(Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
+            return Row[0].toObject();
+        else if(Row[1].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
+            return Row[1].toObject();
+        else if(Row[2].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
+            return Row[2].toObject();
+        else return {};
+    }
+
+    return {};
+}
+
 void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
 {
     // cell index starts from 1
@@ -69,91 +181,107 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
         if(skipImages) return;
 
     QVariant value = Obj.value("value").toVariant();
-    QJsonObject style = Obj["style"].toObject();
-    //name; width; height; color; background-color; font-family;  font-size; bold; align; border; row-span
-    //QString name = style["name"].toString();
-    QString color = style["color"].toString();
-    QString backgroundColor = style["background-color"].toString();
-    QString fontFamily = style["font-family"].toString();
-    QString align =  style["align"].toString();
-    // width :  x 7 pt
-    // height : pt
-    double width = style["width"].toDouble() * 0.75 / 7;
-    double height = style["height"].toDouble() * 0.75;
-    int fontSize = style["font-size"].toInt();
-    int border = 1;//style["border"].toInt();
-    //int rowSpan = style["row-span"].toInt();
-    bool bold = style["bold"].toBool();
 
-    if(width < 15) width = 15; // in excel file: width: 105 >> 105/7 = 15
+    QXlsx::Format format = getFormat(Obj);
+    setCellSize(row, column, Obj);
 
-    doc.setColumnWidth(column, width);
-    doc.setRowHeight(row, height);
-    QXlsx::Format format;
-    QFont font(fontFamily);
-    font.setBold(bold);
-    font.setPointSize(fontSize);
-    format.setFont(font);
-    format.setFontColor(QColor(color));
-    format.setTextWrap(true);
-    if(align.compare("center", Qt::CaseInsensitive) == 0)
-            format.setHorizontalAlignment(QXlsx::Format::AlignHCenter);
-    else if(align.compare("right", Qt::CaseInsensitive) == 0)
-            format.setHorizontalAlignment(QXlsx::Format::AlignRight);
-    else
-            format.setHorizontalAlignment(QXlsx::Format::AlignLeft);
-    format.setVerticalAlignment(QXlsx::Format::AlignVCenter);
-
-    format.setPatternBackgroundColor(QColor(backgroundColor));
-
-    if(border > 2)
-        format.setBorderStyle(QXlsx::Format::BorderThick);
-    else if(border == 2)
-            format.setBorderStyle(QXlsx::Format::BorderDouble);
-    else if(border == 1)
-        format.setBorderStyle(QXlsx::Format::BorderThin);
-    else if(border == 0)
-        format.setBorderStyle(QXlsx::Format::BorderNone);
 
     if(type.compare("text", Qt::CaseInsensitive) == 0)
         doc.write(row, column, value, format);
     else
     {
-        QImage img(value.toString());
-        double imgWidth = img.width() * 0.75 / 7 ; // pixel to pt of excel cell
-        double imgHeight = img.height() * 0.75;
-        if(imgWidth > width)
-        {
-            updateWidth(tableArray,column,imgWidth);
-        }
+        double w = Obj.value("style").toObject()["width"].toDouble();
+        if(w < 140) w = 140; // excel width min: 15
+        double h = Obj.value("style").toObject()["height"].toDouble();
 
-        if(imgHeight > height)
-        {
+        QImage baseImage(value.toString());
+        QImage img(w, h, QImage::Format_ARGB32);
+        img.fill(Qt::transparent);
+        QPainter painter(&img);
+        double x = w/2 - baseImage.width()/2;
+        double y = h/2 - baseImage.height()/2;
+        painter.drawImage(x,y,baseImage);
 
-            updateHeight(tableArray, row, imgHeight);
-        }
+        doc.insertImage(row-1, column-1, img);
 
-        doc.insertImage(row-1, column-1, img); // images should have the same pixel/inch
+        // insertImage index starts from 0
+        // but write index starts from 1
     }
 }
 
 void ExcelJsonTable::writeRow(QJsonArray Row)
 {
     QJsonObject obj;
-    for(int i=0; i < Row.size(); i++)
+    bool singleItem = (Row.size() == 1)? true : false;
+    // text img or img text
+    if(!singleItem)
     {
-        obj = Row[i].toObject();
-        if(obj.value("type").toString().compare("img", Qt::CaseInsensitive) == 0)
-            if(skipImages)
-                continue;
+        if(Row.size() == 2)
+        {
+            if( (Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0) || ())
+                singleItem = true;
+        }
+    }
+    //img text img
+    if(!singleItem)
+    {
+        if(Row.size() == 3)
+        {
 
-        writeCell(currentRow, currentColumn, obj);
-        currentColumn++;
+        }
+    }
+
+    if(singleItem)
+    {
+        writeOneItemInRow(Row);
+    }
+    else
+    {
+        for(int i=0; i < Row.size(); i++)
+        {
+            obj = Row[i].toObject();
+            writeCell(currentRow, currentColumn, obj);
+            currentColumn++;
+        }
     }
 
     currentRow++;
     currentColumn = 1;
+}
 
+void ExcelJsonTable::writeOneItemInRow(QJsonArray Row)
+{
+    // text
+    // img
+    // in skipImage
+    //      img text img
+    //      img text
+    //      text img
+
+    int columnCount = getMaxColumnCount(sheetIndex);
+    QXlsx::CellRange range(currentRow, 1, currentRow, columnCount);
+    QJsonObject obj = getSingleObject(Row, skipImages);
+    QXlsx::Format format = getFormat(obj);
+    QString type = obj.value("type").toString();
+    if(type.compare("text", Qt::CaseInsensitive) == 0)
+        doc.write(currentRow,currentColumn, obj.value("value").toVariant(),format);
+    else
+    {
+        //img
+        double w = obj.value("style").toObject()["width"].toDouble();  ///// ?
+        if(w < 140) w = 140; // excel width min: 15
+        double h = obj.value("style").toObject()["height"].toDouble();
+
+        QImage baseImage(obj.value("value").toString());
+        QImage img(w, h, QImage::Format_ARGB32);
+        img.fill(Qt::transparent);
+        QPainter painter(&img);
+        double x = w/2 - baseImage.width()/2;
+        double y = h/2 - baseImage.height()/2;
+        painter.drawImage(x,y,baseImage);
+
+        doc.insertImage(currentRow-1, currentColumn-1, img);
+    }
 }
 
 void ExcelJsonTable::updateWidth(QJsonArray &table, int column, double width)
