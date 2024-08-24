@@ -10,6 +10,7 @@ int main(int argc, char *argv[])
 
     TableTemplate tableTemplate(4);
     // page title
+    tableTemplate.appendTitle({"img"}, {":/danet.png"},{"#005"}, {"center"});
     tableTemplate.appendTitle({"img", "text","img"}, {":/danet.png", "DaNet Report", ":/danet.png"},{"", "#005", ""}, {"left", "center", "right"});
     tableTemplate.appendTitle({"text", "text"}, {"2-BA Saloon Data", "1403/05/29"}, {"#050", "#500"}, {"left", "right"});
 
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
 
     ExcelJsonTable ejs;
     ejs.setTables(title,table);
-    ejs.exportExcel("file.xlsx",{0},false);
+    ejs.exportExcel("file.xlsx",{0},true);
 
     //QJsonArray jt = ejs.excelToJson("a.xlsx",0,3,2);
 

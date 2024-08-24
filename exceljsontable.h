@@ -16,10 +16,11 @@ public:
     void exportExcel(QString _outputPath, QList<int> _repeatedRows, bool _skipImages = true);
     QXlsx::Format getFormat(QJsonObject Obj);
     void setCellSize(int row, int column, QJsonObject Obj);
-    QJsonObject getSingleObject(QJsonArray Row, bool skipImage);
+    QJsonObject getSingleObject(QJsonArray Row);
     void writeCell(int row, int column, QJsonObject Obj);
     void writeRow(QJsonArray Row);
-    void writeOneItemInRow(QJsonArray Row);
+    void writeOneItemInRow(QJsonObject obj);
+    double getCellWidth(int startColumn, int endColumn);
     void updateWidth(QJsonArray &table, int column, double width);
     void updateHeight(QJsonArray &table, int row,  double height);
     QString getSheetName(int row);

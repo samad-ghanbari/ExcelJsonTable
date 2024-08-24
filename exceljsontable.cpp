@@ -123,7 +123,7 @@ void ExcelJsonTable::setCellSize(int row, int column, QJsonObject Obj)
     doc.setRowHeight(row, height);
 }
 
-QJsonObject ExcelJsonTable::getSingleObject(QJsonArray Row, bool skipImage)
+QJsonObject ExcelJsonTable::getSingleObject(QJsonArray Row)
 {
     // text
     // img
@@ -134,7 +134,7 @@ QJsonObject ExcelJsonTable::getSingleObject(QJsonArray Row, bool skipImage)
 
     if(Row.size() == 1)
     {
-        if(skipImage)
+        if(skipImages)
         {
             if(Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
                 return Row[0].toObject();
@@ -148,24 +148,40 @@ QJsonObject ExcelJsonTable::getSingleObject(QJsonArray Row, bool skipImage)
     }
     else if(Row.size() == 2)
     {
-        // skipImage is true by default
-        if(Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
-            return Row[0].toObject();
-        else if(Row[1].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
-            return Row[1].toObject();
-        else return {};
+        if(skipImages)
+        {
+            bool item0Text = (Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)? true :false;
+            bool item1Text = (Row[1].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)? true :false;
 
+            // skipImage is true by default
+            if( item0Text && !item1Text )
+                return Row[0].toObject();
+            else if( !item0Text && item1Text )
+                return Row[1].toObject();
+            else return {};
+        }
+        else return {};
     }
     else if(Row.size() == 3)
     {
-        // skipImage is true by default
-        if(Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
-            return Row[0].toObject();
-        else if(Row[1].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
-            return Row[1].toObject();
-        else if(Row[2].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)
-            return Row[2].toObject();
-        else return {};
+        if(skipImages)
+        {
+            bool item0Text = (Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)? true :false;
+            bool item1Text = (Row[1].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)? true :false;
+            bool item2Text = (Row[2].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0)? true :false;
+
+
+            // skipImage is true by default
+            if(item0Text && !item1Text && !item2Text)
+                return Row[0].toObject();
+            else if(!item0Text && item1Text && !item2Text)
+                return Row[1].toObject();
+            else if(!item0Text && !item1Text && item2Text)
+                return Row[2].toObject();
+            else return {};
+        }
+        else
+            return {};
     }
 
     return {};
@@ -212,28 +228,12 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
 void ExcelJsonTable::writeRow(QJsonArray Row)
 {
     QJsonObject obj;
-    bool singleItem = (Row.size() == 1)? true : false;
-    // text img or img text
-    if(!singleItem)
+    obj = getSingleObject(Row);
+    bool goAhead = false;
+    if(!obj.isEmpty())
     {
-        if(Row.size() == 2)
-        {
-            if( (Row[0].toObject().value("type").toString().compare("text", Qt::CaseInsensitive) == 0) || ())
-                singleItem = true;
-        }
-    }
-    //img text img
-    if(!singleItem)
-    {
-        if(Row.size() == 3)
-        {
-
-        }
-    }
-
-    if(singleItem)
-    {
-        writeOneItemInRow(Row);
+        writeOneItemInRow(obj);
+        goAhead = true;
     }
     else
     {
@@ -242,14 +242,30 @@ void ExcelJsonTable::writeRow(QJsonArray Row)
             obj = Row[i].toObject();
             writeCell(currentRow, currentColumn, obj);
             currentColumn++;
+
+            if(!goAhead)
+            {
+                if(skipImages)
+                {
+                    //check text exisxts or not
+                    QString t = obj.value("type").toString();
+                    if(t.compare("text", Qt::CaseInsensitive) == 0)
+                        goAhead = true;
+                }
+                else
+                    goAhead = true;
+            }
         }
     }
 
-    currentRow++;
-    currentColumn = 1;
+    if(goAhead)
+    {
+        currentRow++;
+        currentColumn = 1;
+    }
 }
 
-void ExcelJsonTable::writeOneItemInRow(QJsonArray Row)
+void ExcelJsonTable::writeOneItemInRow(QJsonObject obj)
 {
     // text
     // img
@@ -260,15 +276,20 @@ void ExcelJsonTable::writeOneItemInRow(QJsonArray Row)
 
     int columnCount = getMaxColumnCount(sheetIndex);
     QXlsx::CellRange range(currentRow, 1, currentRow, columnCount);
-    QJsonObject obj = getSingleObject(Row, skipImages);
+    doc.mergeCells(range);
+
     QXlsx::Format format = getFormat(obj);
     QString type = obj.value("type").toString();
+
+    double height = obj.value("style").toObject()["height"].toDouble() * 0.75;
+    doc.setRowHeight(currentRow, height);
+
     if(type.compare("text", Qt::CaseInsensitive) == 0)
-        doc.write(currentRow,currentColumn, obj.value("value").toVariant(),format);
+        doc.write(currentRow,1, obj.value("value").toVariant(),format);
     else
     {
         //img
-        double w = obj.value("style").toObject()["width"].toDouble();  ///// ?
+        double w = getCellWidth(1, columnCount);
         if(w < 140) w = 140; // excel width min: 15
         double h = obj.value("style").toObject()["height"].toDouble();
 
@@ -282,6 +303,17 @@ void ExcelJsonTable::writeOneItemInRow(QJsonArray Row)
 
         doc.insertImage(currentRow-1, currentColumn-1, img);
     }
+}
+
+double ExcelJsonTable::getCellWidth(int startColumn, int endColumn)
+{
+    double width = 0;
+    updateColumnWidthMap(sheetIndex);
+    foreach (int column, columnWidth)
+        if(column >= startColumn && column <=endColumn)
+            width += columnWidth.value(column);
+
+    return width;
 }
 
 void ExcelJsonTable::updateWidth(QJsonArray &table, int column, double width)
