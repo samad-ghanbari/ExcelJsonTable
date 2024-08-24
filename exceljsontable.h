@@ -13,7 +13,9 @@ class ExcelJsonTable : public QObject
 public:
     explicit ExcelJsonTable(QObject *parent = nullptr);
     void setTables(QJsonArray _titleArray, QJsonArray _tableArray);
-    void exportExcel(QString _outputPath, QList<int> _repeatedRows, bool _skipImages = true);
+    void exportExcel(QString _outputPath, QList<int> _repeatedRows, bool _skipImages = false);
+    void writeSheetTitleArray();
+    void writeRepeatedRows();
     QXlsx::Format getFormat(QJsonObject Obj);
     void setCellSize(int row, int column, QJsonObject Obj);
     QJsonObject getSingleObject(QJsonArray Row);

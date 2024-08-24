@@ -30,8 +30,42 @@ void ExcelJsonTable::exportExcel(QString _outputPath, QList<int> _repeatedRows, 
     updateColumnWidthMap(sheetIndex);
     currentRow = 1;
     currentColumn = 1;
-    int columnCount = getMaxColumnCount(sheetIndex);
 
+    QJsonArray  Row;
+    QJsonObject obj;
+    // write title
+    writeSheetTitleArray();
+
+    //write table
+    for(int i=0; i < tableArray.size(); i++)
+    {
+        Row = tableArray[i].toArray();
+        if(Row.size() == 0)
+        {
+            // new sheet
+            // new sheet name is the next record name attribute
+            sheetIndex++;
+            QString sheetName = "sheet-"+QString::number(sheetIndex);
+            if((i+1) < tableArray.size())
+                sheetName = getSheetName(i+1);
+
+            currentRow = 1;
+            currentColumn = 1;
+
+            doc.addSheet(sheetName);
+            doc.selectSheet(sheetIndex);
+            writeSheetTitleArray();
+            writeRepeatedRows();
+        }
+        writeRow(Row);
+    }
+
+    doc.selectSheet(0);
+    doc.saveAs(outputPath);
+}
+
+void ExcelJsonTable::writeSheetTitleArray()
+{
     QJsonArray  Row;
     QJsonObject obj;
     // write title
@@ -41,23 +75,22 @@ void ExcelJsonTable::exportExcel(QString _outputPath, QList<int> _repeatedRows, 
         writeRow(Row);
     }
 
-
+    int columnCount = getMaxColumnCount(sheetIndex);
     QXlsx::CellRange range(currentRow, 1, currentRow, columnCount);
     QXlsx::Format format;
     format.setPatternBackgroundColor(QColor(QString("#55A")));
     doc.setRowHeight(currentRow,10);
     doc.mergeCells(range, format);
     currentRow++;
+}
 
-    //write table
-    for(int i=0; i < tableArray.size(); i++)
+void ExcelJsonTable::writeRepeatedRows()
+{
+    foreach (int i, repeatedRows)
     {
-        Row = tableArray[i].toArray();
+        QJsonArray Row = tableArray[repeatedRows[i]].toArray();
         writeRow(Row);
     }
-
-    //doc.autosizeColumnWidth();
-    doc.saveAs(outputPath);
 }
 
 QXlsx::Format ExcelJsonTable::getFormat(QJsonObject Obj)
@@ -115,9 +148,10 @@ void ExcelJsonTable::setCellSize(int row, int column, QJsonObject Obj)
     double width = style["width"].toDouble() * 0.75 / 7;
     double height = style["height"].toDouble() * 0.75;
     if(width < 15)
-    {
         width = 15; // in excel file: width: 105 >> 105/7 = 15
-    }
+    if(height < 30)
+        height = 30;
+
 
     doc.setColumnWidth(column, width);
     doc.setRowHeight(row, height);
@@ -210,6 +244,8 @@ void ExcelJsonTable::writeCell(int row, int column, QJsonObject Obj)
         if(w < 140) w = 140; // excel width min: 15
         double h = Obj.value("style").toObject()["height"].toDouble();
 
+        doc.write(currentRow, currentColumn, "", format); // set background and other attributes
+
         QImage baseImage(value.toString());
         QImage img(w, h, QImage::Format_ARGB32);
         img.fill(Qt::transparent);
@@ -280,8 +316,10 @@ void ExcelJsonTable::writeOneItemInRow(QJsonObject obj)
 
     QXlsx::Format format = getFormat(obj);
     QString type = obj.value("type").toString();
+    doc.write(currentRow, currentColumn, "", format); // set background and other attributes
 
     double height = obj.value("style").toObject()["height"].toDouble() * 0.75;
+    if(height < 30 ) height = 30;
     doc.setRowHeight(currentRow, height);
 
     if(type.compare("text", Qt::CaseInsensitive) == 0)
@@ -289,13 +327,13 @@ void ExcelJsonTable::writeOneItemInRow(QJsonObject obj)
     else
     {
         //img
-        double w = getCellWidth(1, columnCount);
+        double w = getCellWidth(0, columnCount);
         if(w < 140) w = 140; // excel width min: 15
         double h = obj.value("style").toObject()["height"].toDouble();
 
         QImage baseImage(obj.value("value").toString());
         QImage img(w, h, QImage::Format_ARGB32);
-        img.fill(Qt::transparent);
+        img.fill(Qt::transparent); // format.patternBackgroundColor()
         QPainter painter(&img);
         double x = w/2 - baseImage.width()/2;
         double y = h/2 - baseImage.height()/2;
@@ -309,7 +347,7 @@ double ExcelJsonTable::getCellWidth(int startColumn, int endColumn)
 {
     double width = 0;
     updateColumnWidthMap(sheetIndex);
-    foreach (int column, columnWidth)
+    foreach (int column, columnWidth.keys())
         if(column >= startColumn && column <=endColumn)
             width += columnWidth.value(column);
 
