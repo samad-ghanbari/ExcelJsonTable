@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
     tableTemplate.highlight(5);
 
-    QJsonArray table = tableTemplate.getTable(1500, 2);
+    QJsonArray table = tableTemplate.getTable(1500);
     QJsonArray title = tableTemplate.getTitle(1500);
 
     ExcelJsonTable ejs;

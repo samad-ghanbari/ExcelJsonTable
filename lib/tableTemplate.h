@@ -156,20 +156,19 @@ public:
         table.highlightRow(row);
     }
 
-    QJsonArray getTable(double width, int columnSpanNumber, bool justifyWidth = true)
+    QJsonArray getTable(double width, bool justifyWidth = true)
     {
         if(justifyWidth)
         {
             table.updateFairCell(width, true);
-            table.updateRowSpan(columnSpanNumber);
+            table.updateRowSpan(false);
         }
         else
         {
             table.updateSameWidth(width);
             table.updateHeight();
-            table.updateRowSpan(true,columnSpanNumber);
+            table.updateRowSpan(false);
         }
-
 
         return table.table;
     }
